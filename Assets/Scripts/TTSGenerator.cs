@@ -5,14 +5,30 @@ using System.Threading;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 
+public enum Language : byte
+{
+    Chinese,
+    English,
+}
+
 public enum VoiceType
 {
-    Xiaoxiao, //晓晓
+    Xiaoxiao, //晓晓(女声 - 常用)
     Xiaoyi, //晓伊
-    Yunjian, //云健
-    Yunxi, //云希
     Yunxia, //云夏
-    Yunyang //云杨
+    Yunjian, //云健(男声 - 常用)//男声
+    Yunxi, //云希
+    Yunyang, //云杨
+}
+
+public enum VoiceTypeEn
+{
+    Jenny, // (女声 - 常用)
+    Aria, // (女声)
+    Ana, // (女声)
+    Guy, // (男声 - 常用)//男声
+    Christopher, // (男声)
+    Steffan, // (男声)
 }
 
 public static class TTSGenerator
@@ -24,7 +40,7 @@ public static class TTSGenerator
     /// <summary>
     /// 生成TTS语音文件（异步）
     /// </summary>
-    public static void GenerateTTS(string filePath, string content, VoiceType speaker,
+    public static void GenerateTTS(string filePath, string content, Language language, int speaker,
         Action<bool, string> onComplete = null, int retryCount = 0)
     {
         // 确保同一时间只有一个TTS生成任务在执行
@@ -68,11 +84,24 @@ public static class TTSGenerator
 
             try
             {
-                // 转义特殊字符
-                string escapedContent = EscapeCommandLineArgument(content);
-                string voiceType = $"zh-CN-{speaker}Neural";
+                // 构建语言参数
+                string languageParam = language switch
+                {
+                    Language.Chinese => "zh-CN",
+                    Language.English => "en-US",
+                    _ => "zh-CN" // 默认中文
+                };
+                string speakerParam = language switch
+                {
+                    Language.Chinese => ((VoiceType)speaker).ToString(),
+                    Language.English => ((VoiceTypeEn)speaker).ToString(),
+                    _ => speaker.ToString() // 默认中文
+                };
+                string voiceType = $"{languageParam}-{speakerParam}Neural";
+                string escapedContent = EscapeCommandLineArgument(content);// 转义特殊字符
                 string arguments = $"--voice {voiceType} --text \"{escapedContent}\" --write-media \"{filePath}\"";
 
+                Debug.Log($"edge-tts {arguments}");
                 ProcessStartInfo startInfo = new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
@@ -135,7 +164,7 @@ public static class TTSGenerator
                 // 重试
                 Debug.Log($"正在重试... ({retryCount + 2}/{MaxRetries})");
                 Thread.Sleep(1000); // 等待1秒后重试
-                GenerateTTS(filePath, content, speaker, onComplete, retryCount + 1);
+                GenerateTTS(filePath, content, language, speaker, onComplete, retryCount + 1);
             }
             else
             {
